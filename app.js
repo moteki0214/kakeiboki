@@ -120,6 +120,22 @@ class DataStore {
     updateAccount(id, updates) {
         const acct = this.getAccount(id);
         if (!acct) return false;
+        // IDの変更処理（仕訳データの参照も一括更新）
+        if (updates.id !== undefined && updates.id !== id) {
+            const newId = updates.id;
+            // 重複チェック
+            if (this.accounts.some(a => a.id === newId)) return 'duplicate';
+            // 仕訳データ内の参照を更新
+            for (const j of this.journals) {
+                for (const d of j.debits) {
+                    if (d.accountId === id) d.accountId = newId;
+                }
+                for (const c of j.credits) {
+                    if (c.accountId === id) c.accountId = newId;
+                }
+            }
+            acct.id = newId;
+        }
         if (updates.name !== undefined) acct.name = updates.name;
         if (updates.type !== undefined) acct.type = updates.type;
         this.save();
@@ -703,13 +719,24 @@ function startEditAccount(id) {
     if (!acct) return;
     const item = document.querySelector(`.account-item[data-account-id="${id}"]`);
     if (!item) return;
+    const idSpan = item.querySelector('.account-item-id');
     const nameSpan = item.querySelector('.account-item-name');
     const actionsDiv = item.querySelector('.account-item-actions');
+    // IDをインプットに変更
+    const idInput = document.createElement('input');
+    idInput.type = 'text';
+    idInput.className = 'account-edit-input';
+    idInput.value = acct.id;
+    idInput.placeholder = '科目ID';
+    idInput.pattern = '[a-zA-Z0-9_]+';
+    idInput.style.maxWidth = '120px';
+    idSpan.replaceWith(idInput);
     // 名前をインプットに変更
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
     nameInput.className = 'account-edit-input';
     nameInput.value = acct.name;
+    nameInput.placeholder = '科目名';
     nameSpan.replaceWith(nameInput);
     // タイプセレクトを追加
     const typeSelect = document.createElement('select');
@@ -736,22 +763,28 @@ function startEditAccount(id) {
     cancelBtn.style.fontSize = '0.78rem';
     actionsDiv.appendChild(saveBtn);
     actionsDiv.appendChild(cancelBtn);
-    nameInput.focus();
-    nameInput.select();
+    idInput.focus();
+    idInput.select();
     saveBtn.addEventListener('click', () => {
+        const newId = idInput.value.trim();
         const newName = nameInput.value.trim();
         const newType = typeSelect.value;
+        if (!newId) { showToast('科目IDを入力してください', 'error'); return; }
+        if (!/^[a-zA-Z0-9_]+$/.test(newId)) { showToast('科目IDは英数字とアンダースコアのみ使用できます', 'error'); return; }
         if (!newName) { showToast('科目名を入力してください', 'error'); return; }
-        store.updateAccount(id, { name: newName, type: newType });
+        const result = store.updateAccount(id, { id: newId, name: newName, type: newType });
+        if (result === 'duplicate') { showToast('この科目IDは既に存在します', 'error'); return; }
         populateAllSelects();
         renderAccounts();
         showToast(`「${newName}」に更新しました ✓`);
     });
     cancelBtn.addEventListener('click', () => renderAccounts());
-    nameInput.addEventListener('keydown', (e) => {
+    const handleKeydown = (e) => {
         if (e.key === 'Enter') saveBtn.click();
         if (e.key === 'Escape') cancelBtn.click();
-    });
+    };
+    idInput.addEventListener('keydown', handleKeydown);
+    nameInput.addEventListener('keydown', handleKeydown);
 }
 
 // 科目追加フォーム
