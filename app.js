@@ -589,7 +589,8 @@ function renderBalanceSheet() {
     for (const a of store.getAccountsByType('expense')) expenseTotal += store.getBalance(a.id, dateVal);
     const netIncome = incomeTotal - expenseTotal;
     if (netIncome !== 0) {
-        bsLiabilities.innerHTML += `<tr><td>繰越利益剰余金</td><td class="col-amount">${formatCurrency(netIncome)}</td></tr>`;
+        const retainedDisplay = netIncome < 0 ? `△${formatCurrency(netIncome)}` : formatCurrency(netIncome);
+        bsLiabilities.innerHTML += `<tr><td>繰越利益剰余金</td><td class="col-amount">${retainedDisplay}</td></tr>`;
     }
 
     const netTotal = liabTotal + equityTotal + netIncome;
