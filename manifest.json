@@ -1,0 +1,21 @@
+{
+  "name": "複式簿記家計簿",
+  "short_name": "家計簿",
+  "description": "複式簿記の原則に基づいた家計簿アプリケーション。仕訳入力、仕訳帳、総勘定元帳、貸借対照表、損益計算書の機能を提供します。",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#0f1117",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%230f1117' rx='36'/%3E%3Ctext x='50%25' y='55%25' font-size='80' text-anchor='middle' dominant-baseline='middle'%3E📒%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%230f1117' rx='96'/%3E%3Ctext x='50%25' y='55%25' font-size='200' text-anchor='middle' dominant-baseline='middle'%3E📒%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
