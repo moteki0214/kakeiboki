@@ -34,12 +34,14 @@ class DataStore {
     constructor() {
         this.accounts = JSON.parse(localStorage.getItem('kakeibo_accounts')) || [...DEFAULT_ACCOUNTS];
         this.journals = JSON.parse(localStorage.getItem('kakeibo_journals')) || [];
+        this.recurring = JSON.parse(localStorage.getItem('kakeibo_recurring')) || [];
         this.userId = null;
         this.unsubscribe = null;
     }
     save() {
         localStorage.setItem('kakeibo_accounts', JSON.stringify(this.accounts));
         localStorage.setItem('kakeibo_journals', JSON.stringify(this.journals));
+        localStorage.setItem('kakeibo_recurring', JSON.stringify(this.recurring));
         this.syncToFirestore();
     }
     async syncToFirestore() {
@@ -49,6 +51,7 @@ class DataStore {
             await db.collection('users').doc(this.userId).set({
                 accounts: this.accounts,
                 journals: this.journals,
+                recurring: this.recurring,
                 lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
             });
             setSyncStatus('synced');
@@ -69,8 +72,10 @@ class DataStore {
                     this.journals = data.journals;
                     this.journals.sort((a, b) => a.date.localeCompare(b.date));
                 }
+                if (data.recurring) this.recurring = data.recurring;
                 localStorage.setItem('kakeibo_accounts', JSON.stringify(this.accounts));
                 localStorage.setItem('kakeibo_journals', JSON.stringify(this.journals));
+                localStorage.setItem('kakeibo_recurring', JSON.stringify(this.recurring));
                 populateAllSelects();
                 const activeBtn = document.querySelector('.nav-btn.active');
                 if (activeBtn) {
@@ -79,6 +84,7 @@ class DataStore {
                     if (activeTab === 'ledger') renderLedger();
                     if (activeTab === 'balance-sheet') renderBalanceSheet();
                     if (activeTab === 'income-statement') renderIncomeStatement();
+                    if (activeTab === 'recurring') renderRecurring();
                     if (activeTab === 'accounts') renderAccounts();
                 }
                 setSyncStatus('synced');
@@ -181,6 +187,58 @@ class DataStore {
         }
         return balance;
     }
+    // ===== 定期仕訳テンプレート =====
+    addRecurring(template) {
+        template.id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        this.recurring.push(template);
+        this.save();
+        return template;
+    }
+    updateRecurring(id, updates) {
+        const tpl = this.recurring.find(r => r.id === id);
+        if (!tpl) return false;
+        Object.assign(tpl, updates);
+        this.save();
+        return true;
+    }
+    deleteRecurring(id) {
+        this.recurring = this.recurring.filter(r => r.id !== id);
+        this.save();
+    }
+    // 当月の定期仕訳を自動生成（重複防止付き）
+    processRecurringEntries() {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth(); // 0-indexed
+        let generated = 0;
+        for (const tpl of this.recurring) {
+            if (!tpl.enabled) continue;
+            // 生成日が今日よりも未来ならスキップ
+            const genDay = Math.min(tpl.dayOfMonth, new Date(year, month + 1, 0).getDate());
+            const genDate = new Date(year, month, genDay);
+            if (genDate > today) continue;
+            // 当月の仕訳が既に存在するか確認
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(genDay).padStart(2, '0')}`;
+            const alreadyExists = this.journals.some(j => j.recurringId === tpl.id && j.date.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`));
+            if (alreadyExists) continue;
+            // 仕訳を生成
+            const entry = {
+                id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5) + generated,
+                date: dateStr,
+                description: tpl.description,
+                debits: JSON.parse(JSON.stringify(tpl.debits)),
+                credits: JSON.parse(JSON.stringify(tpl.credits)),
+                recurringId: tpl.id
+            };
+            this.journals.push(entry);
+            generated++;
+        }
+        if (generated > 0) {
+            this.journals.sort((a, b) => a.date.localeCompare(b.date));
+            this.save();
+        }
+        return generated;
+    }
 }
 
 const store = new DataStore();
@@ -215,6 +273,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
         if (btn.dataset.tab === 'ledger') renderLedger();
         if (btn.dataset.tab === 'balance-sheet') renderBalanceSheet();
         if (btn.dataset.tab === 'income-statement') renderIncomeStatement();
+        if (btn.dataset.tab === 'recurring') renderRecurring();
         if (btn.dataset.tab === 'accounts') renderAccounts();
     });
 });
@@ -265,6 +324,8 @@ function populateAllSelects() {
         }
         if (cur) ledgerSel.value = cur;
     }
+    // 定期仕訳フォームの勘定科目セレクト
+    document.querySelectorAll('.recurring-account-select').forEach(populateAccountSelect);
 }
 populateAllSelects();
 
@@ -931,3 +992,109 @@ if (typeof auth !== 'undefined') {
 
 // ===== 初期化 =====
 updateRemoveButtons();
+
+// ===== 定期仕訳 =====
+function renderRecurring() {
+    const content = document.getElementById('recurringListContent');
+    const empty = document.getElementById('recurringEmpty');
+    content.innerHTML = '';
+    if (store.recurring.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+    for (const tpl of store.recurring) {
+        const debitAcct = tpl.debits[0] ? store.getAccount(tpl.debits[0].accountId) : null;
+        const creditAcct = tpl.credits[0] ? store.getAccount(tpl.credits[0].accountId) : null;
+        const amount = tpl.debits[0] ? tpl.debits[0].amount : 0;
+        const item = document.createElement('div');
+        item.className = `recurring-item${tpl.enabled ? '' : ' disabled'}`;
+        item.innerHTML = `
+            <div class="recurring-item-info">
+                <div class="recurring-item-desc">${tpl.description}</div>
+                <div class="recurring-item-detail">
+                    <span>借方: ${debitAcct ? debitAcct.name : '不明'}</span>
+                    <span>→</span>
+                    <span>貸方: ${creditAcct ? creditAcct.name : '不明'}</span>
+                </div>
+            </div>
+            <span class="recurring-day-badge">毎月 ${tpl.dayOfMonth}日</span>
+            <span class="recurring-amount">${formatCurrency(amount)}</span>
+            <div class="recurring-item-actions">
+                <label class="toggle-switch" title="${tpl.enabled ? '有効' : '無効'}">
+                    <input type="checkbox" ${tpl.enabled ? 'checked' : ''} data-recurring-id="${tpl.id}">
+                    <span class="toggle-slider"></span>
+                </label>
+                <button class="btn btn-danger btn-delete-recurring" data-id="${tpl.id}">削除</button>
+            </div>
+        `;
+        // トグルイベント
+        item.querySelector('input[type="checkbox"]').addEventListener('change', (e) => {
+            store.updateRecurring(tpl.id, { enabled: e.target.checked });
+            renderRecurring();
+            showToast(e.target.checked ? `「${tpl.description}」を有効にしました` : `「${tpl.description}」を無効にしました`, 'info');
+        });
+        // 削除イベント
+        item.querySelector('.btn-delete-recurring').addEventListener('click', () => {
+            if (confirm(`「${tpl.description}」のテンプレートを削除しますか？`)) {
+                store.deleteRecurring(tpl.id);
+                renderRecurring();
+                showToast(`「${tpl.description}」を削除しました`, 'info');
+            }
+        });
+        content.appendChild(item);
+    }
+}
+
+// テンプレート追加フォーム
+const recurringForm = document.getElementById('recurringForm');
+if (recurringForm) {
+    recurringForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const description = document.getElementById('recurringDesc').value.trim();
+        const dayOfMonth = parseInt(document.getElementById('recurringDay').value);
+        const debitAccountId = document.getElementById('recurringDebitAccount').value;
+        const debitAmount = parseFloat(document.getElementById('recurringDebitAmount').value) || 0;
+        const creditAccountId = document.getElementById('recurringCreditAccount').value;
+        const creditAmount = parseFloat(document.getElementById('recurringCreditAmount').value) || 0;
+        if (!description || !dayOfMonth || !debitAccountId || !creditAccountId || debitAmount <= 0 || creditAmount <= 0) {
+            showToast('すべての項目を正しく入力してください', 'error');
+            return;
+        }
+        if (debitAmount !== creditAmount) {
+            showToast('借方と貸方の金額が一致しません', 'error');
+            return;
+        }
+        store.addRecurring({
+            description,
+            dayOfMonth,
+            debits: [{ accountId: debitAccountId, amount: debitAmount }],
+            credits: [{ accountId: creditAccountId, amount: creditAmount }],
+            enabled: true
+        });
+        showToast(`「${description}」を登録しました ✓`);
+        recurringForm.reset();
+        renderRecurring();
+    });
+}
+
+// 手動生成ボタン
+const processRecurringBtn = document.getElementById('processRecurringBtn');
+if (processRecurringBtn) {
+    processRecurringBtn.addEventListener('click', () => {
+        const count = store.processRecurringEntries();
+        if (count > 0) {
+            showToast(`定期仕訳を${count}件登録しました ✓`);
+        } else {
+            showToast('生成する定期仕訳はありません', 'info');
+        }
+    });
+}
+
+// 起動時の自動仕訳生成
+{
+    const autoGenCount = store.processRecurringEntries();
+    if (autoGenCount > 0) {
+        showToast(`定期仕訳を${autoGenCount}件自動登録しました ✓`);
+    }
+}

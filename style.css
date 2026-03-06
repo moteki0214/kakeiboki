@@ -757,6 +757,131 @@ select {
     color: var(--accent-red) !important;
 }
 
+/* ===== 定期仕訳 ===== */
+.recurring-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-lg);
+}
+
+.recurring-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    margin-bottom: var(--space-sm);
+    transition: all var(--transition-base);
+    animation: fadeSlideIn 0.25s ease;
+}
+
+.recurring-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--border-active);
+}
+
+.recurring-item.disabled {
+    opacity: 0.45;
+}
+
+.recurring-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.recurring-item-desc {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 2px;
+}
+
+.recurring-item-detail {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.recurring-item-detail span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.recurring-day-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-blue-glow);
+    color: var(--accent-blue);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 0.82rem;
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+}
+
+.recurring-amount {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+}
+
+.recurring-item-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+/* トグルスイッチ */
+.toggle-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    cursor: pointer;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-full);
+    transition: all var(--transition-base);
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: var(--text-secondary);
+    border-radius: 50%;
+    transition: all var(--transition-base);
+}
+
+.toggle-switch input:checked+.toggle-slider {
+    background: var(--accent-green-dim);
+}
+
+.toggle-switch input:checked+.toggle-slider::before {
+    transform: translateX(20px);
+    background: var(--accent-green);
+}
+
 .toast-container {
     position: fixed;
     bottom: var(--space-lg);

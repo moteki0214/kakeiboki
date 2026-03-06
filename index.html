@@ -67,6 +67,10 @@
                 <span class="nav-icon">💰</span>
                 <span class="nav-label">損益計算書</span>
             </button>
+            <button class="nav-btn" data-tab="recurring">
+                <span class="nav-icon">🔄</span>
+                <span class="nav-label">定期仕訳</span>
+            </button>
             <button class="nav-btn" data-tab="accounts">
                 <span class="nav-icon">⚙️</span>
                 <span class="nav-label">勘定科目</span>
@@ -335,6 +339,75 @@
                             <span class="pl-net-value" id="plNetValue">¥0</span>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== 定期仕訳管理 ===== -->
+        <section class="tab-content" id="recurring">
+            <div class="section-header">
+                <h2>定期仕訳</h2>
+                <p class="section-desc">毎月発生する固定費のテンプレートを管理します</p>
+            </div>
+
+            <!-- テンプレート追加フォーム -->
+            <div class="card glass-card">
+                <h3 class="account-form-title">テンプレートを追加</h3>
+                <form id="recurringForm">
+                    <div class="form-row">
+                        <div class="form-group flex-grow">
+                            <label for="recurringDesc">摘要</label>
+                            <input type="text" id="recurringDesc" placeholder="例: 家賃" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="recurringDay">生成日（毎月）</label>
+                            <input type="number" id="recurringDay" min="1" max="28" placeholder="25" required>
+                        </div>
+                    </div>
+                    <div class="double-entry-grid">
+                        <div class="entry-side debit-side">
+                            <h3 class="side-title debit-title">借方（Debit）</h3>
+                            <div class="form-group">
+                                <label>勘定科目</label>
+                                <select class="recurring-account-select" id="recurringDebitAccount" required>
+                                    <option value="">勘定科目を選択</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>金額</label>
+                                <input type="number" id="recurringDebitAmount" placeholder="金額" min="1" required>
+                            </div>
+                        </div>
+                        <div class="entry-side credit-side">
+                            <h3 class="side-title credit-title">貸方（Credit）</h3>
+                            <div class="form-group">
+                                <label>勘定科目</label>
+                                <select class="recurring-account-select" id="recurringCreditAccount" required>
+                                    <option value="">勘定科目を選択</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>金額</label>
+                                <input type="number" id="recurringCreditAmount" placeholder="金額" min="1" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">テンプレートを登録</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- テンプレート一覧 -->
+            <div class="card glass-card">
+                <div class="recurring-list-header">
+                    <h3 class="account-form-title">テンプレート一覧</h3>
+                    <button class="btn btn-primary" id="processRecurringBtn">🔄 今月分を生成</button>
+                </div>
+                <div id="recurringListContent"></div>
+                <div class="empty-state hidden" id="recurringEmpty">
+                    <span class="empty-icon">🔄</span>
+                    <p>定期仕訳テンプレートがまだ登録されていません</p>
                 </div>
             </div>
         </section>
