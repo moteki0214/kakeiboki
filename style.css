@@ -753,6 +753,10 @@ select {
     font-weight: 600;
 }
 
+.negative-balance {
+    color: var(--accent-red) !important;
+}
+
 .toast-container {
     position: fixed;
     bottom: var(--space-lg);

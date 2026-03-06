@@ -499,7 +499,7 @@ function renderLedger() {
                         <td>${j.description}</td>
                         <td class="col-amount">${formatCurrency(d.amount)}</td>
                         <td class="col-amount"></td>
-                        <td class="col-amount">${formatCurrency(runningBalance)}</td>
+                        <td class="col-amount${runningBalance < 0 ? ' negative-balance' : ''}">${runningBalance < 0 ? '△' + formatCurrency(runningBalance) : formatCurrency(runningBalance)}</td>
                     </tr>`;
                 }
             }
@@ -511,7 +511,7 @@ function renderLedger() {
                         <td>${j.description}</td>
                         <td class="col-amount"></td>
                         <td class="col-amount">${formatCurrency(c.amount)}</td>
-                        <td class="col-amount">${formatCurrency(runningBalance)}</td>
+                        <td class="col-amount${runningBalance < 0 ? ' negative-balance' : ''}">${runningBalance < 0 ? '△' + formatCurrency(runningBalance) : formatCurrency(runningBalance)}</td>
                     </tr>`;
                 }
             }
@@ -521,7 +521,7 @@ function renderLedger() {
                 <span class="ledger-account-name">${acct.name}</span>
                 <div style="display:flex;align-items:center;gap:12px;">
                     <span class="ledger-account-type ${TYPE_CSS[acct.type]}">${TYPE_LABELS[acct.type]}</span>
-                    <span class="ledger-balance">残高: ${formatCurrency(runningBalance)}</span>
+                    <span class="ledger-balance${runningBalance < 0 ? ' negative-balance' : ''}">残高: ${runningBalance < 0 ? '△' + formatCurrency(runningBalance) : formatCurrency(runningBalance)}</span>
                 </div>
             </div>
             <div class="table-wrap">
