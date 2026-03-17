@@ -568,7 +568,7 @@ select {
 }
 
 .col-action {
-    width: 60px;
+    width: 110px;
     text-align: center;
 }
 
@@ -608,6 +608,16 @@ select {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-lg);
+    align-items: stretch;
+}
+
+.bs-side {
+    display: flex;
+    flex-direction: column;
+}
+
+.bs-table {
+    height: 100%;
 }
 
 .bs-side-title {

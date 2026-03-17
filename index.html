@@ -170,6 +170,10 @@
                         <label for="journalTo">終了日</label>
                         <input type="date" id="journalTo">
                     </div>
+                    <div class="form-group">
+                        <label for="journalKeyword">キーワード(摘要)</label>
+                        <input type="text" id="journalKeyword" placeholder="検索ワード">
+                    </div>
                     <button class="btn btn-secondary" id="journalFilter">絞り込み</button>
                     <button class="btn btn-ghost" id="journalReset">リセット</button>
                 </div>
@@ -234,9 +238,9 @@
                     <button class="btn btn-secondary" id="bsGenerate">表示</button>
                 </div>
                 <div class="bs-grid" id="bsContent">
-                    <div class="bs-side">
+                    <div class="bs-side bs-side-assets">
                         <h3 class="bs-side-title">資産の部</h3>
-                        <table class="data-table">
+                        <table class="data-table bs-table">
                             <thead>
                                 <tr>
                                     <th>勘定科目</th>
@@ -244,6 +248,7 @@
                                 </tr>
                             </thead>
                             <tbody id="bsAssets"></tbody>
+                            <tbody class="spacer-tbody"><tr><td colspan="2" style="border:none;padding:0;height:100%;"></td></tr></tbody>
                             <tfoot>
                                 <tr class="total-row">
                                     <td>資産合計</td>
@@ -252,21 +257,33 @@
                             </tfoot>
                         </table>
                     </div>
-                    <div class="bs-side">
+                    <div class="bs-side bs-side-liab-equity">
                         <h3 class="bs-side-title">負債・純資産の部</h3>
-                        <table class="data-table">
+                        <table class="data-table bs-table">
                             <thead>
                                 <tr>
                                     <th>勘定科目</th>
                                     <th class="col-amount">金額</th>
                                 </tr>
                             </thead>
+                            <!-- 負債 -->
                             <tbody id="bsLiabilities"></tbody>
-                            <tfoot>
+                            <tbody class="subtotal-tbody">
                                 <tr class="subtotal-row">
                                     <td>負債合計</td>
                                     <td class="col-amount" id="bsLiabilitiesTotal">¥0</td>
                                 </tr>
+                            </tbody>
+                            <!-- 純資産 -->
+                            <tbody id="bsEquity"></tbody>
+                            <tbody class="subtotal-tbody">
+                                <tr class="subtotal-row">
+                                    <td>純資産合計</td>
+                                    <td class="col-amount" id="bsEquityTotal">¥0</td>
+                                </tr>
+                            </tbody>
+                            <tbody class="spacer-tbody"><tr><td colspan="2" style="border:none;padding:0;height:100%;"></td></tr></tbody>
+                            <tfoot class="bs-tfoot-bottom">
                                 <tr class="total-row">
                                     <td>負債・純資産合計</td>
                                     <td class="col-amount" id="bsLiabilitiesNetTotal">¥0</td>

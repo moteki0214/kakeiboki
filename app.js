@@ -163,10 +163,11 @@ class DataStore {
         this.accounts = [...DEFAULT_ACCOUNTS];
         this.save();
     }
-    getFilteredJournals(from, to) {
+    getFilteredJournals(from, to, keyword) {
         return this.journals.filter(j => {
             if (from && j.date < from) return false;
             if (to && j.date > to) return false;
+            if (keyword && !j.description.includes(keyword)) return false;
             return true;
         });
     }
@@ -463,7 +464,8 @@ entryForm.addEventListener('reset', () => {
 function renderJournal() {
     const from = document.getElementById('journalFrom').value;
     const to = document.getElementById('journalTo').value;
-    const entries = store.getFilteredJournals(from, to);
+    const keyword = document.getElementById('journalKeyword').value;
+    const entries = store.getFilteredJournals(from, to, keyword);
     const tbody = document.getElementById('journalBody');
     const empty = document.getElementById('journalEmpty');
     tbody.innerHTML = '';
@@ -520,6 +522,7 @@ document.getElementById('journalFilter').addEventListener('click', renderJournal
 document.getElementById('journalReset').addEventListener('click', () => {
     document.getElementById('journalFrom').value = '';
     document.getElementById('journalTo').value = '';
+    document.getElementById('journalKeyword').value = '';
     renderJournal();
 });
 
@@ -613,25 +616,29 @@ function renderBalanceSheet() {
 
     const bsAssets = document.getElementById('bsAssets');
     const bsLiabilities = document.getElementById('bsLiabilities');
+    const bsEquity = document.getElementById('bsEquity');
     bsAssets.innerHTML = '';
     bsLiabilities.innerHTML = '';
+    if (bsEquity) bsEquity.innerHTML = '';
 
     let assetsTotal = 0;
     for (const a of assetAccounts) {
         const bal = store.getBalance(a.id, dateVal);
         if (bal !== 0) {
-            bsAssets.innerHTML += `<tr><td>${a.name}</td><td class="col-amount">${formatCurrency(bal)}</td></tr>`;
+            const displayBal = bal < 0 ? '△' + formatCurrency(bal) : formatCurrency(bal);
+            bsAssets.innerHTML += `<tr><td>${a.name}</td><td class="col-amount">${displayBal}</td></tr>`;
             assetsTotal += bal;
         }
     }
     if (assetsTotal === 0) bsAssets.innerHTML = '<tr><td colspan="2" style="color:var(--text-muted);text-align:center;">データなし</td></tr>';
-    document.getElementById('bsAssetsTotal').textContent = formatCurrency(assetsTotal);
+    document.getElementById('bsAssetsTotal').textContent = assetsTotal < 0 ? '△' + formatCurrency(assetsTotal) : formatCurrency(assetsTotal);
 
     let liabTotal = 0;
     for (const a of liabilityAccounts) {
         const bal = store.getBalance(a.id, dateVal);
         if (bal !== 0) {
-            bsLiabilities.innerHTML += `<tr><td>${a.name}</td><td class="col-amount">${formatCurrency(bal)}</td></tr>`;
+            const displayBal = bal < 0 ? '△' + formatCurrency(bal) : formatCurrency(bal);
+            bsLiabilities.innerHTML += `<tr><td>${a.name}</td><td class="col-amount">${displayBal}</td></tr>`;
             liabTotal += bal;
         }
     }
@@ -640,7 +647,9 @@ function renderBalanceSheet() {
     for (const a of equityAccounts) {
         const bal = store.getBalance(a.id, dateVal);
         if (bal !== 0) {
-            bsLiabilities.innerHTML += `<tr><td>${a.name}</td><td class="col-amount">${formatCurrency(bal)}</td></tr>`;
+            const displayBal = bal < 0 ? '△' + formatCurrency(bal) : formatCurrency(bal);
+            if (bsEquity) bsEquity.innerHTML += `<tr><td>${a.name}</td><td class="col-amount">${displayBal}</td></tr>`;
+            else bsLiabilities.innerHTML += `<tr><td>${a.name}</td><td class="col-amount">${displayBal}</td></tr>`;
             equityTotal += bal;
         }
     }
@@ -651,15 +660,23 @@ function renderBalanceSheet() {
     const netIncome = incomeTotal - expenseTotal;
     if (netIncome !== 0) {
         const retainedDisplay = netIncome < 0 ? `△${formatCurrency(netIncome)}` : formatCurrency(netIncome);
-        bsLiabilities.innerHTML += `<tr><td>繰越利益剰余金</td><td class="col-amount">${retainedDisplay}</td></tr>`;
+        if (bsEquity) bsEquity.innerHTML += `<tr><td>繰越利益剰余金</td><td class="col-amount">${retainedDisplay}</td></tr>`;
+        else bsLiabilities.innerHTML += `<tr><td>繰越利益剰余金</td><td class="col-amount">${retainedDisplay}</td></tr>`;
     }
 
     const netTotal = liabTotal + equityTotal + netIncome;
     if (liabTotal === 0 && equityTotal === 0 && netIncome === 0) {
         bsLiabilities.innerHTML = '<tr><td colspan="2" style="color:var(--text-muted);text-align:center;">データなし</td></tr>';
     }
-    document.getElementById('bsLiabilitiesTotal').textContent = formatCurrency(liabTotal);
-    document.getElementById('bsLiabilitiesNetTotal').textContent = formatCurrency(netTotal);
+    document.getElementById('bsLiabilitiesTotal').textContent = liabTotal < 0 ? '△' + formatCurrency(liabTotal) : formatCurrency(liabTotal);
+    
+    const totalEq = equityTotal + netIncome;
+    const bsEquityEl = document.getElementById('bsEquityTotal');
+    if (bsEquityEl) {
+        bsEquityEl.textContent = totalEq < 0 ? '△' + formatCurrency(totalEq) : formatCurrency(totalEq);
+    }
+
+    document.getElementById('bsLiabilitiesNetTotal').textContent = netTotal < 0 ? '△' + formatCurrency(netTotal) : formatCurrency(netTotal);
 }
 
 document.getElementById('bsGenerate').addEventListener('click', renderBalanceSheet);
@@ -720,7 +737,7 @@ function renderIncomeStatement() {
     netEl.classList.remove('positive', 'negative');
     if (netIncome > 0) netEl.classList.add('positive');
     else if (netIncome < 0) netEl.classList.add('negative');
-    document.getElementById('plNetValue').textContent = (netIncome < 0 ? '-' : '') + formatCurrency(netIncome);
+    document.getElementById('plNetValue').textContent = netIncome < 0 ? '△' + formatCurrency(netIncome) : formatCurrency(netIncome);
 }
 
 document.getElementById('plGenerate').addEventListener('click', renderIncomeStatement);
