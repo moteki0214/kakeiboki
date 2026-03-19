@@ -35,6 +35,7 @@ class DataStore {
         this.accounts = JSON.parse(localStorage.getItem('kakeibo_accounts')) || [...DEFAULT_ACCOUNTS];
         this.journals = JSON.parse(localStorage.getItem('kakeibo_journals')) || [];
         this.recurring = JSON.parse(localStorage.getItem('kakeibo_recurring')) || [];
+        this.dictionaries = JSON.parse(localStorage.getItem('kakeibo_dictionaries')) || [];
         this.userId = null;
         this.unsubscribe = null;
     }
@@ -42,6 +43,7 @@ class DataStore {
         localStorage.setItem('kakeibo_accounts', JSON.stringify(this.accounts));
         localStorage.setItem('kakeibo_journals', JSON.stringify(this.journals));
         localStorage.setItem('kakeibo_recurring', JSON.stringify(this.recurring));
+        localStorage.setItem('kakeibo_dictionaries', JSON.stringify(this.dictionaries));
         this.syncToFirestore();
     }
     async syncToFirestore() {
@@ -52,6 +54,7 @@ class DataStore {
                 accounts: this.accounts,
                 journals: this.journals,
                 recurring: this.recurring,
+                dictionaries: this.dictionaries,
                 lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
             });
             setSyncStatus('synced');
@@ -73,9 +76,11 @@ class DataStore {
                     this.journals.sort((a, b) => a.date.localeCompare(b.date));
                 }
                 if (data.recurring) this.recurring = data.recurring;
+                if (data.dictionaries) this.dictionaries = data.dictionaries;
                 localStorage.setItem('kakeibo_accounts', JSON.stringify(this.accounts));
                 localStorage.setItem('kakeibo_journals', JSON.stringify(this.journals));
                 localStorage.setItem('kakeibo_recurring', JSON.stringify(this.recurring));
+                localStorage.setItem('kakeibo_dictionaries', JSON.stringify(this.dictionaries));
                 populateAllSelects();
                 const activeBtn = document.querySelector('.nav-btn.active');
                 if (activeBtn) {
@@ -114,6 +119,14 @@ class DataStore {
     deleteJournal(id) {
         this.journals = this.journals.filter(j => j.id !== id);
         this.save();
+    }
+    updateJournal(id, updates) {
+        const journal = this.journals.find(j => j.id === id);
+        if (!journal) return false;
+        Object.assign(journal, updates);
+        this.journals.sort((a, b) => a.date.localeCompare(b.date));
+        this.save();
+        return true;
     }
     getAccount(id) { return this.accounts.find(a => a.id === id); }
     getAccountsByType(type) { return this.accounts.filter(a => a.type === type); }
@@ -240,6 +253,17 @@ class DataStore {
         }
         return generated;
     }
+    // ===== 仕訳辞書 =====
+    addDictionary(template) {
+        template.id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        this.dictionaries.push(template);
+        this.save();
+        return template;
+    }
+    deleteDictionary(id) {
+        this.dictionaries = this.dictionaries.filter(d => d.id !== id);
+        this.save();
+    }
 }
 
 const store = new DataStore();
@@ -276,6 +300,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
         if (btn.dataset.tab === 'income-statement') renderIncomeStatement();
         if (btn.dataset.tab === 'recurring') renderRecurring();
         if (btn.dataset.tab === 'accounts') renderAccounts();
+        if (btn.dataset.tab === 'dictionary') renderDictionaries();
     });
 });
 
@@ -334,6 +359,7 @@ populateAllSelects();
 const entryForm = document.getElementById('entryForm');
 const debitLines = document.getElementById('debitLines');
 const creditLines = document.getElementById('creditLines');
+let currentEditingJournalId = null; // 編集モード管理
 
 // 日付のデフォルトを今日に
 document.getElementById('entryDate').valueAsDate = new Date();
@@ -435,21 +461,88 @@ entryForm.addEventListener('submit', (e) => {
     const debitSum = debits.reduce((s, d) => s + d.amount, 0);
     const creditSum = credits.reduce((s, c) => s + c.amount, 0);
     if (debitSum !== creditSum) { showToast('借方と貸方の合計が一致しません', 'error'); return; }
-    store.addJournal({ date, description, debits, credits });
-    showToast('仕訳を登録しました ✓');
+
+    if (currentEditingJournalId) {
+        // 編集モード：既存の仕訳を更新
+        store.updateJournal(currentEditingJournalId, { date, description, debits, credits });
+        showToast('仕訳を更新しました ✓');
+        cancelEditMode();
+    } else {
+        // 新規モード：仕訳を追加
+        store.addJournal({ date, description, debits, credits });
+        showToast('仕訳を登録しました ✓');
+    }
+    resetEntryForm();
+});
+
+function resetEntryForm() {
     entryForm.reset();
     document.getElementById('entryDate').valueAsDate = new Date();
-    // 行をリセット（1行ずつに戻す）
     debitLines.innerHTML = '';
     creditLines.innerHTML = '';
     debitLines.appendChild(createEntryLine('debit'));
     creditLines.appendChild(createEntryLine('credit'));
     updateRemoveButtons();
     updateBalance();
-});
+}
+
+// ===== 仕訳編集モード =====
+function startEditJournal(journalId) {
+    const journal = store.journals.find(j => j.id === journalId);
+    if (!journal) return;
+    currentEditingJournalId = journalId;
+
+    // 仕訳入力タブに切り替え
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    const entryBtn = document.querySelector('.nav-btn[data-tab="journal-entry"]');
+    if (entryBtn) entryBtn.classList.add('active');
+    document.getElementById('journal-entry').classList.add('active');
+
+    // フォームにデータをセット
+    document.getElementById('entryDate').value = journal.date;
+    document.getElementById('entryDescription').value = journal.description;
+
+    // 借方行を復元
+    debitLines.innerHTML = '';
+    for (const d of journal.debits) {
+        const line = createEntryLine('debit');
+        line.querySelector('select').value = d.accountId;
+        line.querySelector('input').value = d.amount;
+        debitLines.appendChild(line);
+    }
+
+    // 貸方行を復元
+    creditLines.innerHTML = '';
+    for (const c of journal.credits) {
+        const line = createEntryLine('credit');
+        line.querySelector('select').value = c.accountId;
+        line.querySelector('input').value = c.amount;
+        creditLines.appendChild(line);
+    }
+
+    updateRemoveButtons();
+    updateBalance();
+
+    // UIを編集モードに変更
+    document.getElementById('submitBtn').textContent = '仕訳を更新';
+    document.getElementById('editCancelBtn').classList.remove('hidden');
+    document.querySelector('#journal-entry .section-header h2').textContent = '仕訳編集';
+    document.querySelector('#journal-entry .section-desc').textContent = '仕訳の内容を修正して「仕訳を更新」を押してください';
+    entryForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelEditMode() {
+    currentEditingJournalId = null;
+    document.getElementById('submitBtn').textContent = '仕訳を登録';
+    document.getElementById('editCancelBtn').classList.add('hidden');
+    document.querySelector('#journal-entry .section-header h2').textContent = '仕訳入力';
+    document.querySelector('#journal-entry .section-desc').textContent = '借方と貸方の金額が一致するように入力してください';
+}
 
 entryForm.addEventListener('reset', () => {
     setTimeout(() => {
+        if (currentEditingJournalId) cancelEditMode();
         document.getElementById('entryDate').valueAsDate = new Date();
         debitLines.innerHTML = '';
         creditLines.innerHTML = '';
@@ -500,8 +593,14 @@ function renderJournal() {
                 const tdAction = document.createElement('td');
                 tdAction.className = 'col-action';
                 tdAction.setAttribute('rowspan', maxRows);
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn btn-secondary btn-sm';
+                editBtn.textContent = '編集';
+                editBtn.style.marginRight = '4px';
+                editBtn.addEventListener('click', () => startEditJournal(entry.id));
+                tdAction.appendChild(editBtn);
                 const delBtn = document.createElement('button');
-                delBtn.className = 'btn btn-danger';
+                delBtn.className = 'btn btn-danger btn-sm';
                 delBtn.textContent = '削除';
                 delBtn.addEventListener('click', () => {
                     if (confirm('この仕訳を削除しますか？')) {
@@ -1115,3 +1214,141 @@ if (processRecurringBtn) {
         showToast(`定期仕訳を${autoGenCount}件自動登録しました ✓`);
     }
 }
+
+// ===== 仕訳辞書 =====
+// 辞書セレクトボックスの更新
+function populateDictionarySelect() {
+    const sel = document.getElementById('dictionarySelect');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">📒 辞書から入力…</option>';
+    for (const dict of store.dictionaries) {
+        const opt = document.createElement('option');
+        opt.value = dict.id;
+        opt.textContent = dict.name;
+        sel.appendChild(opt);
+    }
+}
+populateDictionarySelect();
+
+// 辞書選択時にフォームへ展開
+const dictionarySelect = document.getElementById('dictionarySelect');
+if (dictionarySelect) {
+    dictionarySelect.addEventListener('change', () => {
+        const dictId = dictionarySelect.value;
+        if (!dictId) return;
+        const dict = store.dictionaries.find(d => d.id === dictId);
+        if (!dict) return;
+
+        // 編集モード中ならキャンセル
+        if (currentEditingJournalId) cancelEditMode();
+
+        // 摘要をセット
+        document.getElementById('entryDescription').value = dict.description;
+
+        // 借方行を復元
+        debitLines.innerHTML = '';
+        for (const d of dict.debits) {
+            const line = createEntryLine('debit');
+            line.querySelector('select').value = d.accountId;
+            line.querySelector('input').value = d.amount;
+            debitLines.appendChild(line);
+        }
+
+        // 貸方行を復元
+        creditLines.innerHTML = '';
+        for (const c of dict.credits) {
+            const line = createEntryLine('credit');
+            line.querySelector('select').value = c.accountId;
+            line.querySelector('input').value = c.amount;
+            creditLines.appendChild(line);
+        }
+
+        updateRemoveButtons();
+        updateBalance();
+        dictionarySelect.value = ''; // 選択をリセット
+        showToast(`「${dict.name}」を読み込みました`, 'info');
+    });
+}
+
+// 現在の入力内容を辞書に登録
+const saveToDictBtn = document.getElementById('saveToDictBtn');
+if (saveToDictBtn) {
+    saveToDictBtn.addEventListener('click', () => {
+        const description = document.getElementById('entryDescription').value.trim();
+        const debits = [];
+        const credits = [];
+        let valid = true;
+        debitLines.querySelectorAll('.entry-line').forEach(line => {
+            const acctId = line.querySelector('select').value;
+            const amount = parseFloat(line.querySelector('input').value) || 0;
+            if (!acctId || amount <= 0) valid = false;
+            debits.push({ accountId: acctId, amount });
+        });
+        creditLines.querySelectorAll('.entry-line').forEach(line => {
+            const acctId = line.querySelector('select').value;
+            const amount = parseFloat(line.querySelector('input').value) || 0;
+            if (!acctId || amount <= 0) valid = false;
+            credits.push({ accountId: acctId, amount });
+        });
+        if (!valid || debits.length === 0 || credits.length === 0) {
+            showToast('辞書に登録するには科目と金額を正しく入力してください', 'error');
+            return;
+        }
+        const name = prompt('辞書テンプレートの名前を入力してください:', description || '');
+        if (!name) return;
+        store.addDictionary({ name, description, debits, credits });
+        populateDictionarySelect();
+        renderDictionaries();
+        showToast(`「${name}」を辞書に登録しました ✓`);
+    });
+}
+
+// 辞書管理一覧の描画
+function renderDictionaries() {
+    const content = document.getElementById('dictionaryListContent');
+    const empty = document.getElementById('dictionaryEmpty');
+    if (!content) return;
+    content.innerHTML = '';
+    if (store.dictionaries.length === 0) {
+        if (empty) empty.classList.remove('hidden');
+        return;
+    }
+    if (empty) empty.classList.add('hidden');
+    for (const dict of store.dictionaries) {
+        const debitNames = dict.debits.map(d => {
+            const acct = store.getAccount(d.accountId);
+            return acct ? acct.name : '不明';
+        }).join(', ');
+        const creditNames = dict.credits.map(c => {
+            const acct = store.getAccount(c.accountId);
+            return acct ? acct.name : '不明';
+        }).join(', ');
+        const totalAmount = dict.debits.reduce((s, d) => s + d.amount, 0);
+        const item = document.createElement('div');
+        item.className = 'recurring-item';
+        item.innerHTML = `
+            <div class="recurring-item-info">
+                <div class="recurring-item-desc">${dict.name}</div>
+                <div class="recurring-item-detail">
+                    <span>借方: ${debitNames}</span>
+                    <span>→</span>
+                    <span>貸方: ${creditNames}</span>
+                </div>
+            </div>
+            <span class="recurring-amount">${formatCurrency(totalAmount)}</span>
+            <div class="recurring-item-actions">
+                <button class="btn btn-danger btn-delete-dict" data-id="${dict.id}">削除</button>
+            </div>
+        `;
+        item.querySelector('.btn-delete-dict').addEventListener('click', () => {
+            if (confirm(`「${dict.name}」を辞書から削除しますか？`)) {
+                store.deleteDictionary(dict.id);
+                populateDictionarySelect();
+                renderDictionaries();
+                showToast(`「${dict.name}」を削除しました`, 'info');
+            }
+        });
+        content.appendChild(item);
+    }
+}
+renderDictionaries();

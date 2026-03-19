@@ -75,6 +75,10 @@
                 <span class="nav-icon">⚙️</span>
                 <span class="nav-label">勘定科目</span>
             </button>
+            <button class="nav-btn" data-tab="dictionary">
+                <span class="nav-icon">📒</span>
+                <span class="nav-label">仕訳辞書</span>
+            </button>
         </div>
     </nav>
 
@@ -96,6 +100,12 @@
                     <div class="form-group flex-grow">
                         <label for="entryDescription">摘要</label>
                         <input type="text" id="entryDescription" placeholder="例: スーパーで食材購入" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="dictionarySelect">辞書から入力</label>
+                        <select id="dictionarySelect">
+                            <option value="">📒 辞書から入力…</option>
+                        </select>
                     </div>
                 </div>
 
@@ -148,6 +158,8 @@
                 </div>
 
                 <div class="form-actions">
+                    <button type="button" class="btn btn-ghost" id="saveToDictBtn" title="現在の入力内容を辞書に登録">📒 辞書に登録</button>
+                    <button type="button" class="btn btn-danger hidden" id="editCancelBtn" onclick="cancelEditMode(); resetEntryForm();">編集キャンセル</button>
                     <button type="reset" class="btn btn-secondary">リセット</button>
                     <button type="submit" class="btn btn-primary" id="submitBtn" disabled>仕訳を登録</button>
                 </div>
@@ -471,6 +483,23 @@
                         デフォルトに戻す</button>
                 </div>
                 <div id="accountListContent"></div>
+            </div>
+        </section>
+
+        <!-- ===== 仕訳辞書管理 ===== -->
+        <section class="tab-content" id="dictionary">
+            <div class="section-header">
+                <h2>仕訳辞書</h2>
+                <p class="section-desc">よく使う取引のテンプレートを管理します</p>
+            </div>
+            <div class="card glass-card">
+                <h3 class="account-form-title">登録済みテンプレート</h3>
+                <p class="section-desc" style="margin-bottom:var(--space-md);">仕訳入力画面で科目・金額を入力して「📒 辞書に登録」ボタンを押すとここに追加されます</p>
+                <div id="dictionaryListContent"></div>
+                <div class="empty-state hidden" id="dictionaryEmpty">
+                    <span class="empty-icon">📒</span>
+                    <p>仕訳辞書がまだ登録されていません</p>
+                </div>
             </div>
         </section>
 
