@@ -276,6 +276,11 @@ function showToast(message, type = 'success') {
 // ===== ナビゲーション =====
 document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+        // メニュー切り替え時、もし編集モード中なら安全のため新規入力にリセットする
+        if (currentEditingJournalId) {
+            resetEntryForm();
+        }
+
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         btn.classList.add('active');
