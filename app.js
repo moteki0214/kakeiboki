@@ -75,7 +75,7 @@ class DataStore {
                 if (data.accounts) this.accounts = data.accounts;
                 if (data.journals) {
                     this.journals = data.journals;
-                    this.journals.sort((a, b) => a.date.localeCompare(b.date));
+                    this.journals.sort((a, b) => String(a.date).localeCompare(String(b.date)));
                 }
                 if (data.dictionaries) this.dictionaries = data.dictionaries;
                 if (data.dictSortOrder) this.dictSortOrder = data.dictSortOrder;
@@ -117,7 +117,7 @@ class DataStore {
     addJournal(entry) {
         entry.id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
         this.journals.push(entry);
-        this.journals.sort((a, b) => a.date.localeCompare(b.date));
+        this.journals.sort((a, b) => String(a.date).localeCompare(String(b.date)));
         this.save();
         return entry;
     }
@@ -129,55 +129,55 @@ class DataStore {
         const journal = this.journals.find(j => j.id === id);
         if (!journal) return false;
         Object.assign(journal, updates);
-        this.journals.sort((a, b) => a.date.localeCompare(b.date));
+        this.journals.sort((a, b) => String(a.date).localeCompare(String(b.date)));
         this.save();
         return true;
     }
-    getAccount(id) { return this.accounts.find(a => a.id === id); }
+    getAccount(id) { return this.accounts.find(a => String(a.id) === String(id)); }
     getAccountsByType(type) { 
         return this.accounts
             .filter(a => a.type === type)
-            .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+            .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
     }
     addAccount(account) {
-        if (this.accounts.some(a => a.id === account.id)) return false;
+        if (this.accounts.some(a => String(a.id) === String(account.id))) return false;
         this.accounts.push(account);
-        this.accounts.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+        this.accounts.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
         this.save();
         return true;
     }
     updateAccount(id, updates) {
         const acct = this.getAccount(id);
         if (!acct) return false;
-        if (updates.id !== undefined && updates.id !== id) {
-            const newId = updates.id;
-            if (this.accounts.some(a => a.id === newId)) return 'duplicate';
+        if (updates.id !== undefined && String(updates.id) !== String(id)) {
+            const newId = String(updates.id);
+            if (this.accounts.some(a => String(a.id) === newId)) return 'duplicate';
             for (const j of this.journals) {
-                for (const d of j.debits) if (d.accountId === id) d.accountId = newId;
-                for (const c of j.credits) if (c.accountId === id) c.accountId = newId;
+                for (const d of j.debits) if (String(d.accountId) === String(id)) d.accountId = newId;
+                for (const c of j.credits) if (String(c.accountId) === String(id)) c.accountId = newId;
             }
             for (const d of this.dictionaries) {
-                for (const db of d.debits) if (db.accountId === id) db.accountId = newId;
-                for (const cr of d.credits) if (cr.accountId === id) cr.accountId = newId;
+                for (const db of d.debits) if (String(db.accountId) === String(id)) db.accountId = newId;
+                for (const cr of d.credits) if (String(cr.accountId) === String(id)) cr.accountId = newId;
             }
             acct.id = newId;
         }
         if (updates.name !== undefined) acct.name = updates.name;
         if (updates.type !== undefined) acct.type = updates.type;
-        this.accounts.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+        this.accounts.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
         this.save();
         return true;
     }
     deleteAccount(id) {
         if (this.isAccountUsed(id)) return false;
-        this.accounts = this.accounts.filter(a => a.id !== id);
+        this.accounts = this.accounts.filter(a => String(a.id) !== String(id));
         this.save();
         return true;
     }
     isAccountUsed(id) {
         return this.journals.some(j =>
-            j.debits.some(d => d.accountId === id) ||
-            j.credits.some(c => c.accountId === id)
+            j.debits.some(d => String(d.accountId) === String(id)) ||
+            j.credits.some(c => String(c.accountId) === String(id))
         );
     }
     resetAccounts() {
@@ -200,10 +200,10 @@ class DataStore {
         for (const j of this.journals) {
             if (upToDate && j.date > upToDate) continue;
             for (const d of j.debits) {
-                if (d.accountId === accountId) balance += isDebitNormal ? d.amount : -d.amount;
+                if (String(d.accountId) === String(accountId)) balance += isDebitNormal ? d.amount : -d.amount;
             }
             for (const c of j.credits) {
-                if (c.accountId === accountId) balance += isDebitNormal ? -c.amount : c.amount;
+                if (String(c.accountId) === String(accountId)) balance += isDebitNormal ? -c.amount : c.amount;
             }
         }
         return balance;
@@ -324,7 +324,7 @@ function populateAllSelects() {
     if (ledgerSel) {
         const cur = ledgerSel.value;
         ledgerSel.innerHTML = '<option value="">すべて</option>';
-        const allAccts = [...store.accounts].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+        const allAccts = [...store.accounts].sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
         for (const acct of allAccts) {
             const opt = document.createElement('option');
             opt.value = acct.id;
@@ -342,8 +342,6 @@ const debitLines = document.getElementById('debitLines');
 const creditLines = document.getElementById('creditLines');
 let currentEditingJournalId = null;
 let currentEditingDictId = null;
-
-document.getElementById('entryDate').value = getTodayString();
 
 function createEntryLine(side) {
     const line = document.createElement('div');
@@ -413,9 +411,26 @@ function updateBalance() {
     }
 }
 
-document.querySelectorAll('.amount-input').forEach(inp => {
-    inp.addEventListener('input', updateBalance);
-});
+// フォームリセット（競合を防ぐため個別初期化と確実な行再生成）
+function resetEntryForm() {
+    document.getElementById('entryDate').value = getTodayString();
+    document.getElementById('entryDescription').value = '';
+    const dictSel = document.getElementById('dictionarySelect');
+    if (dictSel) dictSel.value = '';
+
+    debitLines.innerHTML = '';
+    creditLines.innerHTML = '';
+    debitLines.appendChild(createEntryLine('debit'));
+    creditLines.appendChild(createEntryLine('credit'));
+
+    updateRemoveButtons();
+    updateBalance();
+    cancelDictEditMode();
+    if (currentEditingJournalId) cancelEditMode();
+}
+
+// 初回ロード時の入力行初期化
+resetEntryForm();
 
 entryForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -453,17 +468,10 @@ entryForm.addEventListener('submit', (e) => {
     resetEntryForm();
 });
 
-function resetEntryForm() {
-    entryForm.reset();
-    document.getElementById('entryDate').value = getTodayString();
-    debitLines.innerHTML = '';
-    creditLines.innerHTML = '';
-    debitLines.appendChild(createEntryLine('debit'));
-    creditLines.appendChild(createEntryLine('credit'));
-    updateRemoveButtons();
-    updateBalance();
-    cancelDictEditMode();
-}
+entryForm.addEventListener('reset', (e) => {
+    e.preventDefault();
+    resetEntryForm();
+});
 
 function startEditJournal(journalId) {
     const journal = store.journals.find(j => j.id === journalId);
@@ -510,13 +518,6 @@ function cancelEditMode() {
     document.getElementById('editCancelBtn').classList.add('hidden');
     document.querySelector('#journal-entry .section-header h2').textContent = '仕訳入力';
 }
-
-entryForm.addEventListener('reset', () => {
-    setTimeout(() => {
-        if (currentEditingJournalId) cancelEditMode();
-        resetEntryForm();
-    }, 0);
-});
 
 // ===== 仕訳帳 =====
 function renderJournal() {
@@ -597,13 +598,13 @@ function renderLedger() {
     const empty = document.getElementById('ledgerEmpty');
     content.innerHTML = '';
     const accountsToShow = selectedId
-        ? store.accounts.filter(a => a.id === selectedId)
-        : [...store.accounts].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+        ? store.accounts.filter(a => String(a.id) === String(selectedId))
+        : [...store.accounts].sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
 
     const relevantAccounts = accountsToShow.filter(acct => {
         return store.journals.some(j =>
-            j.debits.some(d => d.accountId === acct.id) ||
-            j.credits.some(c => c.accountId === acct.id)
+            j.debits.some(d => String(d.accountId) === String(acct.id)) ||
+            j.credits.some(c => String(c.accountId) === String(acct.id))
         );
     });
     if (relevantAccounts.length === 0) {
@@ -620,7 +621,7 @@ function renderLedger() {
         let rows = '';
         for (const j of store.journals) {
             for (const d of j.debits) {
-                if (d.accountId === acct.id) {
+                if (String(d.accountId) === String(acct.id)) {
                     runningBalance += isDebitNormal ? d.amount : -d.amount;
                     rows += `<tr>
                         <td>${formatDate(j.date)}</td>
@@ -632,7 +633,7 @@ function renderLedger() {
                 }
             }
             for (const c of j.credits) {
-                if (c.accountId === acct.id) {
+                if (String(c.accountId) === String(acct.id)) {
                     runningBalance += isDebitNormal ? -c.amount : c.amount;
                     rows += `<tr>
                         <td>${formatDate(j.date)}</td>
@@ -781,10 +782,10 @@ function renderIncomeStatement() {
         const entries = store.getFilteredJournals(from, to);
         for (const j of entries) {
             for (const d of j.debits) {
-                if (d.accountId === accountId) balance += isDebitNormal ? d.amount : -d.amount;
+                if (String(d.accountId) === String(accountId)) balance += isDebitNormal ? d.amount : -d.amount;
             }
             for (const c of j.credits) {
-                if (c.accountId === accountId) balance += isDebitNormal ? -c.amount : c.amount;
+                if (String(c.accountId) === String(accountId)) balance += isDebitNormal ? -c.amount : c.amount;
             }
         }
         return balance;
@@ -821,7 +822,6 @@ function renderIncomeStatement() {
 }
 document.getElementById('plGenerate').addEventListener('click', renderIncomeStatement);
 
-// P/L初期日付を「今年の年始〜本日」に設定
 {
     const currentYear = new Date().getFullYear();
     document.getElementById('plFrom').value = `${currentYear}-01-01`;
@@ -1065,7 +1065,6 @@ if (dictionarySelect) {
     });
 }
 
-// 辞書登録 / 上書き更新
 const saveToDictBtn = document.getElementById('saveToDictBtn');
 if (saveToDictBtn) {
     saveToDictBtn.addEventListener('click', () => {
@@ -1155,7 +1154,6 @@ function cancelDictEditMode() {
     saveToDictBtn.classList.add('btn-ghost');
 }
 
-// 辞書並び替え選択
 const dictSortSelect = document.getElementById('dictSortSelect');
 if (dictSortSelect) {
     dictSortSelect.value = store.dictSortOrder;
@@ -1288,7 +1286,6 @@ function updateAuthModalUI() {
     document.getElementById('authErrorMsg').classList.add('hidden');
 }
 
-// パスワード表示/非表示トグル
 const togglePasswordBtn = document.getElementById('togglePasswordBtn');
 const authPasswordInput = document.getElementById('authPassword');
 if (togglePasswordBtn && authPasswordInput) {
@@ -1299,7 +1296,6 @@ if (togglePasswordBtn && authPasswordInput) {
     });
 }
 
-// パスワードリセット
 const forgotPasswordLink = document.getElementById('forgotPasswordLink');
 if (forgotPasswordLink) {
     forgotPasswordLink.addEventListener('click', async (e) => {
@@ -1315,7 +1311,6 @@ if (forgotPasswordLink) {
     });
 }
 
-// Google ログイン
 const googleLoginBtn = document.getElementById('googleLoginBtn');
 if (googleLoginBtn) {
     googleLoginBtn.addEventListener('click', async () => {
