@@ -265,6 +265,7 @@ function getTodayString() {
 }
 function showToast(message, type = 'success') {
     const container = document.getElementById('toastContainer');
+    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
@@ -279,7 +280,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         btn.classList.add('active');
         const tab = document.getElementById(btn.dataset.tab);
-        tab.classList.add('active');
+        if (tab) tab.classList.add('active');
         if (btn.dataset.tab === 'journal') renderJournal();
         if (btn.dataset.tab === 'ledger') renderLedger();
         if (btn.dataset.tab === 'balance-sheet') renderBalanceSheet();
@@ -291,14 +292,17 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 
 // ===== ヘッダー日付 =====
 function updateHeaderDate() {
+    const el = document.getElementById('headerDate');
+    if (!el) return;
     const now = new Date();
     const opts = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
-    document.getElementById('headerDate').textContent = now.toLocaleDateString('ja-JP', opts);
+    el.textContent = now.toLocaleDateString('ja-JP', opts);
 }
 updateHeaderDate();
 
 // ===== 勘定科目セレクトボックス =====
 function populateAccountSelect(selectEl) {
+    if (!selectEl) return;
     const current = selectEl.value;
     selectEl.innerHTML = '<option value="">勘定科目を選択</option>';
     const types = ['asset', 'liability', 'equity', 'income', 'expense'];
@@ -334,12 +338,14 @@ function populateAllSelects() {
         if (cur) ledgerSel.value = cur;
     }
 }
-populateAllSelects();
 
-// ===== 仕訳入力 =====
+// ===== 仕訳入力関連のDOM要素 =====
 const entryForm = document.getElementById('entryForm');
 const debitLines = document.getElementById('debitLines');
 const creditLines = document.getElementById('creditLines');
+const saveToDictBtn = document.getElementById('saveToDictBtn');
+const editCancelBtn = document.getElementById('editCancelBtn');
+const submitBtn = document.getElementById('submitBtn');
 let currentEditingJournalId = null;
 let currentEditingDictId = null;
 
@@ -365,22 +371,29 @@ function createEntryLine(side) {
 
 function updateRemoveButtons() {
     [debitLines, creditLines].forEach(container => {
+        if (!container) return;
         const lines = container.querySelectorAll('.entry-line');
         lines.forEach(l => {
             const btn = l.querySelector('.btn-remove-line');
-            btn.style.visibility = lines.length > 1 ? 'visible' : 'hidden';
+            if (btn) btn.style.visibility = lines.length > 1 ? 'visible' : 'hidden';
         });
     });
 }
 
-document.getElementById('addDebitLine').addEventListener('click', () => {
-    debitLines.appendChild(createEntryLine('debit'));
-    updateRemoveButtons();
-});
-document.getElementById('addCreditLine').addEventListener('click', () => {
-    creditLines.appendChild(createEntryLine('credit'));
-    updateRemoveButtons();
-});
+const addDebitLineBtn = document.getElementById('addDebitLine');
+if (addDebitLineBtn) {
+    addDebitLineBtn.addEventListener('click', () => {
+        if (debitLines) debitLines.appendChild(createEntryLine('debit'));
+        updateRemoveButtons();
+    });
+}
+const addCreditLineBtn = document.getElementById('addCreditLine');
+if (addCreditLineBtn) {
+    addCreditLineBtn.addEventListener('click', () => {
+        if (creditLines) creditLines.appendChild(createEntryLine('credit'));
+        updateRemoveButtons();
+    });
+}
 
 function getTotal(side) {
     let total = 0;
@@ -393,35 +406,57 @@ function getTotal(side) {
 function updateBalance() {
     const debit = getTotal('debit');
     const credit = getTotal('credit');
-    document.getElementById('debitTotal').textContent = formatCurrency(debit);
-    document.getElementById('creditTotal').textContent = formatCurrency(credit);
+    const debitTotalEl = document.getElementById('debitTotal');
+    const creditTotalEl = document.getElementById('creditTotal');
+    if (debitTotalEl) debitTotalEl.textContent = formatCurrency(debit);
+    if (creditTotalEl) creditTotalEl.textContent = formatCurrency(credit);
+
     const check = document.getElementById('balanceCheck');
-    const submitBtn = document.getElementById('submitBtn');
-    check.classList.remove('balanced', 'unbalanced');
-    if (debit > 0 && credit > 0) {
-        if (debit === credit) {
-            check.classList.add('balanced');
-            submitBtn.disabled = false;
+    if (check) check.classList.remove('balanced', 'unbalanced');
+    if (submitBtn) {
+        if (debit > 0 && credit > 0) {
+            if (debit === credit) {
+                if (check) check.classList.add('balanced');
+                submitBtn.disabled = false;
+            } else {
+                if (check) check.classList.add('unbalanced');
+                submitBtn.disabled = true;
+            }
         } else {
-            check.classList.add('unbalanced');
             submitBtn.disabled = true;
         }
-    } else {
-        submitBtn.disabled = true;
     }
 }
 
-// フォームリセット（競合を防ぐため個別初期化と確実な行再生成）
+function cancelDictEditMode() {
+    currentEditingDictId = null;
+    if (saveToDictBtn) {
+        saveToDictBtn.textContent = '📒 辞書に登録';
+        saveToDictBtn.classList.remove('btn-primary');
+        saveToDictBtn.classList.add('btn-ghost');
+    }
+}
+
+function cancelEditMode() {
+    currentEditingJournalId = null;
+    if (submitBtn) submitBtn.textContent = '仕訳を登録';
+    if (editCancelBtn) editCancelBtn.classList.add('hidden');
+    const headerTitle = document.querySelector('#journal-entry .section-header h2');
+    if (headerTitle) headerTitle.textContent = '仕訳入力';
+}
+
 function resetEntryForm() {
-    document.getElementById('entryDate').value = getTodayString();
-    document.getElementById('entryDescription').value = '';
+    const dateInput = document.getElementById('entryDate');
+    const descInput = document.getElementById('entryDescription');
     const dictSel = document.getElementById('dictionarySelect');
+    if (dateInput) dateInput.value = getTodayString();
+    if (descInput) descInput.value = '';
     if (dictSel) dictSel.value = '';
 
-    debitLines.innerHTML = '';
-    creditLines.innerHTML = '';
-    debitLines.appendChild(createEntryLine('debit'));
-    creditLines.appendChild(createEntryLine('credit'));
+    if (debitLines) debitLines.innerHTML = '';
+    if (creditLines) creditLines.innerHTML = '';
+    if (debitLines) debitLines.appendChild(createEntryLine('debit'));
+    if (creditLines) creditLines.appendChild(createEntryLine('credit'));
 
     updateRemoveButtons();
     updateBalance();
@@ -429,49 +464,48 @@ function resetEntryForm() {
     if (currentEditingJournalId) cancelEditMode();
 }
 
-// 初回ロード時の入力行初期化
-resetEntryForm();
+if (entryForm) {
+    entryForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const date = document.getElementById('entryDate').value;
+        const description = document.getElementById('entryDescription').value.trim();
+        if (!date || !description) { showToast('日付と摘要を入力してください', 'error'); return; }
+        const debits = [];
+        const credits = [];
+        let valid = true;
+        debitLines.querySelectorAll('.entry-line').forEach(line => {
+            const acctId = line.querySelector('select').value;
+            const amount = parseFloat(line.querySelector('input').value) || 0;
+            if (!acctId || amount <= 0) valid = false;
+            debits.push({ accountId: acctId, amount });
+        });
+        creditLines.querySelectorAll('.entry-line').forEach(line => {
+            const acctId = line.querySelector('select').value;
+            const amount = parseFloat(line.querySelector('input').value) || 0;
+            if (!acctId || amount <= 0) valid = false;
+            credits.push({ accountId: acctId, amount });
+        });
+        if (!valid) { showToast('すべての科目と金額を正しく入力してください', 'error'); return; }
+        const debitSum = debits.reduce((s, d) => s + d.amount, 0);
+        const creditSum = credits.reduce((s, c) => s + c.amount, 0);
+        if (debitSum !== creditSum) { showToast('借方と貸方の合計が一致しません', 'error'); return; }
 
-entryForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const date = document.getElementById('entryDate').value;
-    const description = document.getElementById('entryDescription').value.trim();
-    if (!date || !description) { showToast('日付と摘要を入力してください', 'error'); return; }
-    const debits = [];
-    const credits = [];
-    let valid = true;
-    debitLines.querySelectorAll('.entry-line').forEach(line => {
-        const acctId = line.querySelector('select').value;
-        const amount = parseFloat(line.querySelector('input').value) || 0;
-        if (!acctId || amount <= 0) valid = false;
-        debits.push({ accountId: acctId, amount });
+        if (currentEditingJournalId) {
+            store.updateJournal(currentEditingJournalId, { date, description, debits, credits });
+            showToast('仕訳を更新しました ✓');
+            cancelEditMode();
+        } else {
+            store.addJournal({ date, description, debits, credits });
+            showToast('仕訳を登録しました ✓');
+        }
+        resetEntryForm();
     });
-    creditLines.querySelectorAll('.entry-line').forEach(line => {
-        const acctId = line.querySelector('select').value;
-        const amount = parseFloat(line.querySelector('input').value) || 0;
-        if (!acctId || amount <= 0) valid = false;
-        credits.push({ accountId: acctId, amount });
+
+    entryForm.addEventListener('reset', (e) => {
+        e.preventDefault();
+        resetEntryForm();
     });
-    if (!valid) { showToast('すべての科目と金額を正しく入力してください', 'error'); return; }
-    const debitSum = debits.reduce((s, d) => s + d.amount, 0);
-    const creditSum = credits.reduce((s, c) => s + c.amount, 0);
-    if (debitSum !== creditSum) { showToast('借方と貸方の合計が一致しません', 'error'); return; }
-
-    if (currentEditingJournalId) {
-        store.updateJournal(currentEditingJournalId, { date, description, debits, credits });
-        showToast('仕訳を更新しました ✓');
-        cancelEditMode();
-    } else {
-        store.addJournal({ date, description, debits, credits });
-        showToast('仕訳を登録しました ✓');
-    }
-    resetEntryForm();
-});
-
-entryForm.addEventListener('reset', (e) => {
-    e.preventDefault();
-    resetEntryForm();
-});
+}
 
 function startEditJournal(journalId) {
     const journal = store.journals.find(j => j.id === journalId);
@@ -483,7 +517,8 @@ function startEditJournal(journalId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     const entryBtn = document.querySelector('.nav-btn[data-tab="journal-entry"]');
     if (entryBtn) entryBtn.classList.add('active');
-    document.getElementById('journal-entry').classList.add('active');
+    const tabEl = document.getElementById('journal-entry');
+    if (tabEl) tabEl.classList.add('active');
 
     document.getElementById('entryDate').value = journal.date;
     document.getElementById('entryDescription').value = journal.description;
@@ -506,17 +541,11 @@ function startEditJournal(journalId) {
     updateRemoveButtons();
     updateBalance();
 
-    document.getElementById('submitBtn').textContent = '仕訳を更新';
-    document.getElementById('editCancelBtn').classList.remove('hidden');
-    document.querySelector('#journal-entry .section-header h2').textContent = '仕訳編集';
+    if (submitBtn) submitBtn.textContent = '仕訳を更新';
+    if (editCancelBtn) editCancelBtn.classList.remove('hidden');
+    const headerTitle = document.querySelector('#journal-entry .section-header h2');
+    if (headerTitle) headerTitle.textContent = '仕訳編集';
     entryForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function cancelEditMode() {
-    currentEditingJournalId = null;
-    document.getElementById('submitBtn').textContent = '仕訳を登録';
-    document.getElementById('editCancelBtn').classList.add('hidden');
-    document.querySelector('#journal-entry .section-header h2').textContent = '仕訳入力';
 }
 
 // ===== 仕訳帳 =====
@@ -527,14 +556,17 @@ function renderJournal() {
     const entries = store.getFilteredJournals(from, to, keyword);
     const tbody = document.getElementById('journalBody');
     const empty = document.getElementById('journalEmpty');
+    if (!tbody || !empty) return;
     tbody.innerHTML = '';
     if (entries.length === 0) {
         empty.classList.remove('hidden');
-        document.querySelector('#journal .table-wrap').style.display = 'none';
+        const wrap = document.querySelector('#journal .table-wrap');
+        if (wrap) wrap.style.display = 'none';
         return;
     }
     empty.classList.add('hidden');
-    document.querySelector('#journal .table-wrap').style.display = '';
+    const wrap = document.querySelector('#journal .table-wrap');
+    if (wrap) wrap.style.display = '';
     for (const entry of entries) {
         const maxRows = Math.max(entry.debits.length, entry.credits.length);
         for (let i = 0; i < maxRows; i++) {
@@ -583,19 +615,26 @@ function renderJournal() {
     }
 }
 
-document.getElementById('journalFilter').addEventListener('click', renderJournal);
-document.getElementById('journalReset').addEventListener('click', () => {
-    document.getElementById('journalFrom').value = '';
-    document.getElementById('journalTo').value = '';
-    document.getElementById('journalKeyword').value = '';
-    renderJournal();
-});
+const journalFilterBtn = document.getElementById('journalFilter');
+if (journalFilterBtn) journalFilterBtn.addEventListener('click', renderJournal);
+const journalResetBtn = document.getElementById('journalReset');
+if (journalResetBtn) {
+    journalResetBtn.addEventListener('click', () => {
+        document.getElementById('journalFrom').value = '';
+        document.getElementById('journalTo').value = '';
+        document.getElementById('journalKeyword').value = '';
+        renderJournal();
+    });
+}
 
 // ===== 総勘定元帳 =====
 function renderLedger() {
-    const selectedId = document.getElementById('ledgerAccount').value;
+    const ledgerAccountEl = document.getElementById('ledgerAccount');
+    if (!ledgerAccountEl) return;
+    const selectedId = ledgerAccountEl.value;
     const content = document.getElementById('ledgerContent');
     const empty = document.getElementById('ledgerEmpty');
+    if (!content || !empty) return;
     content.innerHTML = '';
     const accountsToShow = selectedId
         ? store.accounts.filter(a => String(a.id) === String(selectedId))
@@ -669,11 +708,13 @@ function renderLedger() {
         content.appendChild(block);
     }
 }
-document.getElementById('ledgerAccount').addEventListener('change', renderLedger);
+const ledgerAccountSelect = document.getElementById('ledgerAccount');
+if (ledgerAccountSelect) ledgerAccountSelect.addEventListener('change', renderLedger);
 
 // ===== 貸借対照表 (流動/固定 分類対応) =====
 function renderBalanceSheet() {
-    const dateVal = document.getElementById('bsDate').value || null;
+    const bsDateEl = document.getElementById('bsDate');
+    const dateVal = bsDateEl ? bsDateEl.value : null;
     const assetAccounts = store.getAccountsByType('asset');
     const liabilityAccounts = store.getAccountsByType('liability');
     const equityAccounts = store.getAccountsByType('equity');
@@ -683,6 +724,7 @@ function renderBalanceSheet() {
     const bsCurrentLiabilities = document.getElementById('bsCurrentLiabilities');
     const bsFixedLiabilities = document.getElementById('bsFixedLiabilities');
     const bsEquity = document.getElementById('bsEquity');
+    if (!bsCurrentAssets || !bsFixedAssets || !bsCurrentLiabilities || !bsFixedLiabilities || !bsEquity) return;
 
     bsCurrentAssets.innerHTML = '';
     bsFixedAssets.innerHTML = '';
@@ -762,17 +804,22 @@ function renderBalanceSheet() {
     const netTotal = totalLiab + totalEq;
     document.getElementById('bsLiabilitiesNetTotal').textContent = netTotal < 0 ? '△' + formatCurrency(netTotal) : formatCurrency(netTotal);
 }
-document.getElementById('bsGenerate').addEventListener('click', renderBalanceSheet);
-document.getElementById('bsDate').value = getTodayString();
+const bsGenerateBtn = document.getElementById('bsGenerate');
+if (bsGenerateBtn) bsGenerateBtn.addEventListener('click', renderBalanceSheet);
+const bsDateInput = document.getElementById('bsDate');
+if (bsDateInput) bsDateInput.value = getTodayString();
 
 // ===== 損益計算書 (年始〜現在を初期設定) =====
 function renderIncomeStatement() {
-    const from = document.getElementById('plFrom').value || null;
-    const to = document.getElementById('plTo').value || null;
+    const plFromEl = document.getElementById('plFrom');
+    const plToEl = document.getElementById('plTo');
+    const from = plFromEl ? plFromEl.value : null;
+    const to = plToEl ? plToEl.value : null;
     const incomeAccounts = store.getAccountsByType('income');
     const expenseAccounts = store.getAccountsByType('expense');
     const plIncome = document.getElementById('plIncome');
     const plExpense = document.getElementById('plExpense');
+    if (!plIncome || !plExpense) return;
     plIncome.innerHTML = '';
     plExpense.innerHTML = '';
 
@@ -815,22 +862,28 @@ function renderIncomeStatement() {
 
     const netIncome = incTotal - expTotal;
     const netEl = document.getElementById('plNetIncome');
-    netEl.classList.remove('positive', 'negative');
-    if (netIncome > 0) netEl.classList.add('positive');
-    else if (netIncome < 0) netEl.classList.add('negative');
+    if (netEl) {
+        netEl.classList.remove('positive', 'negative');
+        if (netIncome > 0) netEl.classList.add('positive');
+        else if (netIncome < 0) netEl.classList.add('negative');
+    }
     document.getElementById('plNetValue').textContent = netIncome < 0 ? '△' + formatCurrency(netIncome) : formatCurrency(netIncome);
 }
-document.getElementById('plGenerate').addEventListener('click', renderIncomeStatement);
+const plGenerateBtn = document.getElementById('plGenerate');
+if (plGenerateBtn) plGenerateBtn.addEventListener('click', renderIncomeStatement);
 
 {
     const currentYear = new Date().getFullYear();
-    document.getElementById('plFrom').value = `${currentYear}-01-01`;
-    document.getElementById('plTo').value = getTodayString();
+    const plFromInput = document.getElementById('plFrom');
+    const plToInput = document.getElementById('plTo');
+    if (plFromInput) plFromInput.value = `${currentYear}-01-01`;
+    if (plToInput) plToInput.value = getTodayString();
 }
 
 // ===== 勘定科目マスタ =====
 function renderAccounts() {
     const content = document.getElementById('accountListContent');
+    if (!content) return;
     content.innerHTML = '';
     const typeOrder = ['asset', 'liability', 'equity', 'income', 'expense'];
     for (const type of typeOrder) {
@@ -938,85 +991,95 @@ function startEditAccount(id) {
     cancelBtn.addEventListener('click', () => renderAccounts());
 }
 
-document.getElementById('accountForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const id = document.getElementById('newAccountId').value.trim();
-    const name = document.getElementById('newAccountName').value.trim();
-    const type = document.getElementById('newAccountType').value;
-    if (!id || !name) { showToast('科目IDと科目名を入力してください', 'error'); return; }
-    if (!store.addAccount({ id, name, type })) {
-        showToast('この科目IDは既に存在します', 'error');
-        return;
-    }
-    populateAllSelects();
-    renderAccounts();
-    showToast(`「${name}」を追加しました ✓`);
-    document.getElementById('accountForm').reset();
-});
-
-document.getElementById('resetAccountsBtn').addEventListener('click', () => {
-    if (confirm('勘定科目をデフォルトに戻しますか？\n※ 仕訳データは削除されません')) {
-        store.resetAccounts();
+const accountForm = document.getElementById('accountForm');
+if (accountForm) {
+    accountForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = document.getElementById('newAccountId').value.trim();
+        const name = document.getElementById('newAccountName').value.trim();
+        const type = document.getElementById('newAccountType').value;
+        if (!id || !name) { showToast('科目IDと科目名を入力してください', 'error'); return; }
+        if (!store.addAccount({ id, name, type })) {
+            showToast('この科目IDは既に存在します', 'error');
+            return;
+        }
         populateAllSelects();
         renderAccounts();
-        showToast('デフォルトの勘定科目に戻しました', 'info');
-    }
-});
+        showToast(`「${name}」を追加しました ✓`);
+        accountForm.reset();
+    });
+}
 
-// CSVエクスポート
-document.getElementById('exportAccountsBtn').addEventListener('click', () => {
-    let csv = '\uFEFFid,name,type\n';
-    for (const a of store.accounts) {
-        csv += `"${a.id}","${a.name.replace(/"/g, '""')}","${a.type}"\n`;
-    }
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `kakeibo_accounts_${getTodayString().replace(/-/g, '')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('勘定科目CSVをエクスポートしました ✓');
-});
-
-// CSVインポート
-const importFileInput = document.getElementById('importAccountsFileInput');
-document.getElementById('importAccountsBtn').addEventListener('click', () => importFileInput.click());
-importFileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        try {
-            const text = event.target.result;
-            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
-            if (lines.length <= 1) { showToast('CSVにデータが含まれていません', 'error'); return; }
-            let count = 0;
-            for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
-                if (cols.length >= 3) {
-                    const [id, name, type] = cols;
-                    if (id && name && ['asset', 'liability', 'equity', 'income', 'expense'].includes(type)) {
-                        const existing = store.getAccount(id);
-                        if (existing) {
-                            store.updateAccount(id, { name, type });
-                        } else {
-                            store.addAccount({ id, name, type });
-                        }
-                        count++;
-                    }
-                }
-            }
+const resetAccountsBtn = document.getElementById('resetAccountsBtn');
+if (resetAccountsBtn) {
+    resetAccountsBtn.addEventListener('click', () => {
+        if (confirm('勘定科目をデフォルトに戻しますか？\n※ 仕訳データは削除されません')) {
+            store.resetAccounts();
             populateAllSelects();
             renderAccounts();
-            showToast(`${count}件の勘定科目をインポートしました ✓`);
-        } catch (err) {
-            showToast('CSVの読み込みに失敗しました', 'error');
+            showToast('デフォルトの勘定科目に戻しました', 'info');
         }
-        importFileInput.value = '';
-    };
-    reader.readAsText(file, 'utf-8');
-});
+    });
+}
+
+const exportAccountsBtn = document.getElementById('exportAccountsBtn');
+if (exportAccountsBtn) {
+    exportAccountsBtn.addEventListener('click', () => {
+        let csv = '\uFEFFid,name,type\n';
+        for (const a of store.accounts) {
+            csv += `"${a.id}","${a.name.replace(/"/g, '""')}","${a.type}"\n`;
+        }
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `kakeibo_accounts_${getTodayString().replace(/-/g, '')}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('勘定科目CSVをエクスポートしました ✓');
+    });
+}
+
+const importFileInput = document.getElementById('importAccountsFileInput');
+const importAccountsBtn = document.getElementById('importAccountsBtn');
+if (importAccountsBtn && importFileInput) {
+    importAccountsBtn.addEventListener('click', () => importFileInput.click());
+    importFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const text = event.target.result;
+                const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+                if (lines.length <= 1) { showToast('CSVにデータが含まれていません', 'error'); return; }
+                let count = 0;
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
+                    if (cols.length >= 3) {
+                        const [id, name, type] = cols;
+                        if (id && name && ['asset', 'liability', 'equity', 'income', 'expense'].includes(type)) {
+                            const existing = store.getAccount(id);
+                            if (existing) {
+                                store.updateAccount(id, { name, type });
+                            } else {
+                                store.addAccount({ id, name, type });
+                            }
+                            count++;
+                        }
+                    }
+                }
+                populateAllSelects();
+                renderAccounts();
+                showToast(`${count}件の勘定科目をインポートしました ✓`);
+            } catch (err) {
+                showToast('CSVの読み込みに失敗しました', 'error');
+            }
+            importFileInput.value = '';
+        };
+        reader.readAsText(file, 'utf-8');
+    });
+}
 
 // ===== 仕訳辞書 =====
 function populateDictionarySelect() {
@@ -1031,7 +1094,6 @@ function populateDictionarySelect() {
         sel.appendChild(opt);
     }
 }
-populateDictionarySelect();
 
 const dictionarySelect = document.getElementById('dictionarySelect');
 if (dictionarySelect) {
@@ -1065,7 +1127,6 @@ if (dictionarySelect) {
     });
 }
 
-const saveToDictBtn = document.getElementById('saveToDictBtn');
 if (saveToDictBtn) {
     saveToDictBtn.addEventListener('click', () => {
         const description = document.getElementById('entryDescription').value.trim();
@@ -1120,7 +1181,8 @@ function startEditDictionary(dictId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     const entryBtn = document.querySelector('.nav-btn[data-tab="journal-entry"]');
     if (entryBtn) entryBtn.classList.add('active');
-    document.getElementById('journal-entry').classList.add('active');
+    const tabEl = document.getElementById('journal-entry');
+    if (tabEl) tabEl.classList.add('active');
 
     document.getElementById('entryDescription').value = dict.description;
     debitLines.innerHTML = '';
@@ -1140,18 +1202,13 @@ function startEditDictionary(dictId) {
     updateRemoveButtons();
     updateBalance();
 
-    saveToDictBtn.textContent = '📒 辞書を上書き更新';
-    saveToDictBtn.classList.add('btn-primary');
-    saveToDictBtn.classList.remove('btn-ghost');
+    if (saveToDictBtn) {
+        saveToDictBtn.textContent = '📒 辞書を上書き更新';
+        saveToDictBtn.classList.add('btn-primary');
+        saveToDictBtn.classList.remove('btn-ghost');
+    }
     entryForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
     showToast(`「${dict.name}」の編集モードに入りました`, 'info');
-}
-
-function cancelDictEditMode() {
-    currentEditingDictId = null;
-    saveToDictBtn.textContent = '📒 辞書に登録';
-    saveToDictBtn.classList.remove('btn-primary');
-    saveToDictBtn.classList.add('btn-ghost');
 }
 
 const dictSortSelect = document.getElementById('dictSortSelect');
@@ -1215,7 +1272,6 @@ function renderDictionaries() {
         content.appendChild(item);
     }
 }
-renderDictionaries();
 
 // ===== Firebase Authentication & 強化UI =====
 function setSyncStatus(status) {
@@ -1258,7 +1314,23 @@ const headerLogoutBtn = document.getElementById('headerLogoutBtn');
 const headerUserBox = document.getElementById('headerUserBox');
 const headerUserEmail = document.getElementById('headerUserEmail');
 
-if (headerLoginBtn) {
+function updateAuthModalUI() {
+    const titleEl = document.getElementById('authModalTitle');
+    const submitBtnEl = document.getElementById('authSubmitBtn');
+    const switchBtnEl = document.getElementById('switchAuthMode');
+    const confirmGroup = document.getElementById('authConfirmPasswordGroup');
+    const forgotWrap = document.getElementById('authForgotWrap');
+    const errorMsg = document.getElementById('authErrorMsg');
+
+    if (titleEl) titleEl.textContent = isLoginMode ? 'ログイン' : '新規登録';
+    if (submitBtnEl) submitBtnEl.textContent = isLoginMode ? 'ログイン' : '登録して始める';
+    if (switchBtnEl) switchBtnEl.textContent = isLoginMode ? 'アカウントをお持ちでない方は 新規登録' : '既にアカウントをお持ちの方は ログイン';
+    if (confirmGroup) confirmGroup.classList.toggle('hidden', isLoginMode);
+    if (forgotWrap) forgotWrap.classList.toggle('hidden', !isLoginMode);
+    if (errorMsg) errorMsg.classList.add('hidden');
+}
+
+if (headerLoginBtn && authModal) {
     headerLoginBtn.addEventListener('click', () => {
         isLoginMode = true;
         updateAuthModalUI();
@@ -1266,7 +1338,7 @@ if (headerLoginBtn) {
     });
 }
 const closeAuthModal = document.getElementById('closeAuthModal');
-if (closeAuthModal) {
+if (closeAuthModal && authModal) {
     closeAuthModal.addEventListener('click', () => authModal.classList.add('hidden'));
 }
 const switchAuthMode = document.getElementById('switchAuthMode');
@@ -1275,15 +1347,6 @@ if (switchAuthMode) {
         isLoginMode = !isLoginMode;
         updateAuthModalUI();
     });
-}
-
-function updateAuthModalUI() {
-    document.getElementById('authModalTitle').textContent = isLoginMode ? 'ログイン' : '新規登録';
-    document.getElementById('authSubmitBtn').textContent = isLoginMode ? 'ログイン' : '登録して始める';
-    document.getElementById('switchAuthMode').textContent = isLoginMode ? 'アカウントをお持ちでない方は 新規登録' : '既にアカウントをお持ちの方は ログイン';
-    document.getElementById('authConfirmPasswordGroup').classList.toggle('hidden', isLoginMode);
-    document.getElementById('authForgotWrap').classList.toggle('hidden', !isLoginMode);
-    document.getElementById('authErrorMsg').classList.add('hidden');
 }
 
 const togglePasswordBtn = document.getElementById('togglePasswordBtn');
@@ -1312,7 +1375,7 @@ if (forgotPasswordLink) {
 }
 
 const googleLoginBtn = document.getElementById('googleLoginBtn');
-if (googleLoginBtn) {
+if (googleLoginBtn && authModal) {
     googleLoginBtn.addEventListener('click', async () => {
         try {
             const provider = new firebase.auth.GoogleAuthProvider();
@@ -1328,14 +1391,14 @@ if (googleLoginBtn) {
 }
 
 const authForm = document.getElementById('authForm');
-if (authForm) {
+if (authForm && authModal) {
     authForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('authEmail').value.trim();
         const password = document.getElementById('authPassword').value;
         const confirmPassword = document.getElementById('authConfirmPassword').value;
         const errorMsg = document.getElementById('authErrorMsg');
-        const submitBtn = document.getElementById('authSubmitBtn');
+        const submitBtnEl = document.getElementById('authSubmitBtn');
 
         errorMsg.classList.add('hidden');
         if (!isLoginMode && password !== confirmPassword) {
@@ -1344,7 +1407,7 @@ if (authForm) {
             return;
         }
 
-        submitBtn.disabled = true;
+        submitBtnEl.disabled = true;
         try {
             if (isLoginMode) {
                 await auth.signInWithEmailAndPassword(email, password);
@@ -1359,7 +1422,7 @@ if (authForm) {
             errorMsg.textContent = getFirebaseAuthErrorMessage(err.code);
             errorMsg.classList.remove('hidden');
         } finally {
-            submitBtn.disabled = false;
+            submitBtnEl.disabled = false;
         }
     });
 }
@@ -1386,3 +1449,7 @@ if (typeof auth !== 'undefined') {
         }
     });
 }
+
+// ===== 初期実行（すべての定義完了後に安全に初期化） =====
+populateDictionarySelect();
+resetEntryForm();
