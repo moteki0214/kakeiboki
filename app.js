@@ -174,11 +174,16 @@ class DataStore {
         this.save();
         return true;
     }
-    isAccountUsed(id) {
-        return this.journals.some(j =>
+isAccountUsed(id) {
+        const inJournals = this.journals.some(j =>
             j.debits.some(d => String(d.accountId) === String(id)) ||
             j.credits.some(c => String(c.accountId) === String(id))
         );
+        const inDictionaries = this.dictionaries.some(dict =>
+            dict.debits.some(d => String(d.accountId) === String(id)) ||
+            dict.credits.some(c => String(c.accountId) === String(id))
+        );
+        return inJournals || inDictionaries;
     }
     resetAccounts() {
         this.accounts = [...DEFAULT_ACCOUNTS];
@@ -905,13 +910,13 @@ function renderAccounts() {
             const item = document.createElement('div');
             item.className = 'account-item';
             item.dataset.accountId = acct.id;
-            item.innerHTML = `
+item.innerHTML = `
                 <span class="account-item-id">${acct.id}</span>
                 <span class="account-item-name">${acct.name}</span>
                 ${used ? '<span class="account-used-badge">使用中</span>' : ''}
                 <div class="account-item-actions">
                     <button class="btn btn-secondary btn-edit-account" data-id="${acct.id}">編集</button>
-                    <button class="btn btn-danger btn-delete-account" data-id="${acct.id}" ${used ? 'disabled title="仕訳で使用中のため削除できません"' : ''}>削除</button>
+                    <button class="btn btn-danger btn-delete-account" data-id="${acct.id}" ${used ? 'disabled title="仕訳または辞書で使用中のため削除できません"' : ''}>削除</button>
                 </div>
             `;
             group.appendChild(item);
@@ -926,10 +931,13 @@ function renderAccounts() {
         btn.addEventListener('click', () => {
             const acct = store.getAccount(btn.dataset.id);
             if (confirm(`「${acct.name}」を削除しますか？`)) {
-                store.deleteAccount(btn.dataset.id);
-                populateAllSelects();
-                renderAccounts();
-                showToast(`「${acct.name}」を削除しました`, 'info');
+                if (store.deleteAccount(btn.dataset.id)) {
+                    populateAllSelects();
+                    renderAccounts();
+                    showToast(`「${acct.name}」を削除しました`, 'info');
+                } else {
+                    showToast(`「${acct.name}」は使用中のため削除できません`, 'error');
+                }
             }
         });
     });
